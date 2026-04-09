@@ -26,10 +26,11 @@ rules = {
 
 params = {
     'api_key': SCRAPINGBEE_API_KEY,
-    # This full URL bypasses the standard 'Not Found' gate
-    'url': f"https://www.amazon.com/product-reviews/{TARGET_ASIN}/?reviewerType=all_reviews",
-    'premium_proxy': 'true',
-    'country_code': 'us', # Tells ScrapingBee to use a US-based IP
+    'url': f"https://www.amazon.in/product-reviews/{TARGET_ASIN}/", # Note the .in
+    'render_js': 'true',
+    'stealth_proxy': 'true',
+    'country_code': 'in', # This tells ScrapingBee to use an Indian IP
+    'wait_for': "div[data-hook='review']",
     'extract_rules': json.dumps(rules)
 }
 
