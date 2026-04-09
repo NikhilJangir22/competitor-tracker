@@ -32,7 +32,7 @@ params = {
     'render_js': 'true',
     'stealth_proxy': 'true',
     'country_code': 'us',
-    'wait_for': "div[data-hook='review']", 
+    'wait_for': 5000, 
     'extract_rules': json.dumps(rules)
 }
 
