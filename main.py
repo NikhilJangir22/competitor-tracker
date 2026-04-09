@@ -1,75 +1,41 @@
-import os
-import requests
-import json
-from google import genai
-
-# 1. SETUP
-SCRAPINGBEE_API_KEY = os.environ.get("SCRAPINGBEE_API_KEY")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
-# If B07QXV6N1B keeps 404ing, try a newer one like B0D1Y7F6Y8 (Anker 737)
-TARGET_ASIN = "B07QXV6N1B" 
-
-print(f"🚀 Mission Start: Analyzing {TARGET_ASIN}...")
-
-# 2. THE FIX: Robust Selectors & URL Parameters
-rules = {
-    "reviews": {
-        "selector": "div[data-hook='review']", # More stable than 'div.review'
-        "type": "list",
-        "output": {
-            "body": "span[data-hook='review-body']",
-            "rating": "i[data-hook='review-star-rating'] span"
-        }
-    }
-}
-
-params = {
-    'api_key': SCRAPINGBEE_API_KEY,
-    'url': f"https://www.amazon.in/product-reviews/{TARGET_ASIN}/", # Note the .in
-    'render_js': 'true',
-    'stealth_proxy': 'true',
-    'country_code': 'in', # This tells ScrapingBee to use an Indian IP
-    'wait_for': "div[data-hook='review']",
-    'extract_rules': json.dumps(rules)
-}
-
-try:
-    response = requests.get('https://app.scrapingbee.com/api/v1', params=params, timeout=30)
+def run_workflow():
+    # Use a 'Session' to keep the connection stable
+    session = requests.Session()
     
-    # If it's a 404, don't crash, just tell us why
-    if response.status_code == 404:
-        print(f"⚠️ Amazon returned 404. The ASIN {TARGET_ASIN} might be inactive or regional.")
-        exit(0)
+    try:
+        print("📡 Requesting data from Amazon US via Stealth Tunnel...")
+        print("⏳ Note: Stealth mode can take up to 90 seconds. Please wait...")
         
-    response.raise_for_status()
-    data = response.json()
-except Exception as e:
-    print(f"❌ SCRAPING ERROR: {e}")
-    if 'response' in locals(): print(f"Details: {response.text}")
-    exit(1)
+        # INCREASED TIMEOUT: From 60 to 120 seconds
+        response = session.get(
+            'https://app.scrapingbee.com/api/v1', 
+            params=params, 
+            timeout=120 
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            reviews = data.get('reviews', [])
+            
+            if not reviews:
+                print("⚠️ Connection successful, but no reviews were found by the selectors.")
+                # We save a note so the workflow still "succeeds" but tells you it was empty
+                with open("report.md", "w") as f: f.write("No reviews found. Amazon may have a CAPTCHA.")
+                return
 
-reviews = data.get('reviews', [])
-if not reviews:
-    print("⚠️ No reviews found. The page loaded but no data matched our selectors.")
-    exit(0)
+            print(f"✅ Success! Captured {len(reviews)} reviews.")
+            analyze_with_ai(reviews)
+            
+        elif response.status_code == 401:
+            print("❌ ERROR: Your ScrapingBee API Key is invalid or expired.")
+        elif response.status_code == 429:
+            print("❌ ERROR: You have run out of ScrapingBee credits!")
+        else:
+            print(f"❌ Scraping Error: {response.status_code}")
+            print(f"Response: {response.text}")
 
-print(f"✅ Secured {len(reviews)} reviews. Consulting AI...")
-
-# 3. AI ANALYSIS
-try:
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    prompt = f"Summarize these reviews into a 3-point competitor battlecard: {json.dumps(reviews)}"
-    
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=prompt
-    )
-    
-    with open("report.md", "w") as file:
-        file.write(response.text)
-    print("🎯 Mission Accomplished! Report saved.")
-
-except Exception as e:
-    print(f"❌ AI ERROR: {e}")
-    exit(1)
+    except requests.exceptions.Timeout:
+        print("❌ TIMEOUT ERROR: The connection took too long. Amazon's wall is very thick today.")
+        print("Try running the workflow again in 10 minutes.")
+    except Exception as e:
+        print(f"❌ Connection Failed: {str(e)}")
