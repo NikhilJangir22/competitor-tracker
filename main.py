@@ -3,43 +3,67 @@ import requests
 import json
 import google.generativeai as genai
 
-# Pull your secret keys from the GitHub vault
+# 1. SETUP & SAFETY CHECK
 SCRAPINGBEE_API_KEY = os.environ.get("SCRAPINGBEE_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Choose a competitor to track (Example: Anker Power Bank ASIN)
-TARGET_ASIN = "B07QXV6N1B" # <-- Change this to your competitor's ASIN
+if not SCRAPINGBEE_API_KEY or not GEMINI_API_KEY:
+    print("❌ ERROR: Missing API keys in GitHub Secrets!")
+    exit(1)
 
-print(f"Starting mission: Fetching reviews for {TARGET_ASIN}...")
+TARGET_ASIN = "B07QXV6N1B"  # Change this to your competitor's ASIN
 
-# 1. Fetch data through ScrapingBee
+print(f"🚀 Mission Start: Analyzing {TARGET_ASIN}...")
+
+# 2. FETCH DATA WITH ERROR HANDLING
 url = f"https://www.amazon.com/product-reviews/{TARGET_ASIN}"
 params = {
     'api_key': SCRAPINGBEE_API_KEY,
     'url': url,
-    'extract_rules': '{"reviews": {"selector": "div.review", "type": "list", "output": {"body": "span.review-text", "rating": "i.review-rating span"}}}'
+    'premium_proxy': 'true',  # Crucial for Amazon in 2026
+    'extract_rules': {
+        'reviews': {
+            'selector': 'div.review',
+            'type': 'list',
+            'output': {
+                'body': 'span.review-text',
+                'rating': 'i.review-rating span'
+            }
+        }
+    }
 }
-response = requests.get('https://app.scrapingbee.com/api/v1', params=params)
-reviews_data = response.json()
 
-print("Data secured! Sending to Gemini for analysis...")
+try:
+    response = requests.get('https://app.scrapingbee.com/api/v1', params=params, timeout=30)
+    response.raise_for_status() # This checks if the website actually loaded
+    data = response.json()
+except Exception as e:
+    print(f"❌ SCRAPING ERROR: {e}")
+    if 'response' in locals(): print(f"Response details: {response.text}")
+    exit(1)
 
-# 2. AI Analysis
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Check if we actually got reviews
+reviews = data.get('reviews', [])
+if not reviews:
+    print("⚠️ WARNING: No reviews found. Amazon might have changed their layout.")
+    # We create a dummy report so the workflow doesn't fail completely
+    with open("report.md", "w") as f: f.write("# Report Failed\nAmazon blocked the scrape or no reviews were found.")
+    exit(0) 
 
-prompt = f"""
-You are an expert product strategist. Analyze these recent Amazon reviews: {json.dumps(reviews_data)}
+print(f"✅ Secured {len(reviews)} reviews. Consulting AI...")
 
-Write a concise Intelligence Report formatted in Markdown. Include:
-1. **The Biggest Failure:** What is breaking or frustrating users?
-2. **The Hidden Gem:** What is a feature users love that we should copy?
-3. **Actionable Advice:** Give me one marketing hook to steal these customers.
-"""
-ai_response = model.generate_content(prompt)
+# 3. AI ANALYSIS WITH ERROR HANDLING
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    prompt = f"Analyze these Amazon reviews and give me a 3-point strategy report: {json.dumps(reviews)}"
+    ai_response = model.generate_content(prompt)
+    
+    with open("report.md", "w") as file:
+        file.write(ai_response.text)
+    print("🎯 Mission Accomplished! Report saved.")
 
-# 3. Save the report
-with open("report.md", "w") as file:
-    file.write(ai_response.text)
-
-print("Mission accomplished! Report saved.")
+except Exception as e:
+    print(f"❌ AI ERROR: {e}")
+    exit(1)
