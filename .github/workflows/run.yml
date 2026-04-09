@@ -2,8 +2,12 @@ name: Competitor AI Agent
 
 on:
   schedule:
-    - cron: '0 8 * * 1' # This means: Run every Monday at 8 AM UTC
-  workflow_dispatch: # This magical line adds a "Run Now" button so you can test it!
+    - cron: '0 8 * * 1' 
+  workflow_dispatch: 
+
+# This new section tells GitHub to use the updated Node.js 24 engine
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   investigate:
