@@ -1,67 +1,67 @@
 import os
 import requests
 import json
-import google.generativeai as genai
+from google import genai # Updated to the 2026 library
 
-# 1. SETUP & SAFETY CHECK
+# 1. SETUP
 SCRAPINGBEE_API_KEY = os.environ.get("SCRAPINGBEE_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-if not SCRAPINGBEE_API_KEY or not GEMINI_API_KEY:
-    print("❌ ERROR: Missing API keys in GitHub Secrets!")
-    exit(1)
-
-TARGET_ASIN = "B07QXV6N1B"  # Change this to your competitor's ASIN
+TARGET_ASIN = "B07QXV6N1B" 
 
 print(f"🚀 Mission Start: Analyzing {TARGET_ASIN}...")
 
-# 2. FETCH DATA WITH ERROR HANDLING
-url = f"https://www.amazon.com/product-reviews/{TARGET_ASIN}"
-params = {
-    'api_key': SCRAPINGBEE_API_KEY,
-    'url': url,
-    'premium_proxy': 'true',  # Crucial for Amazon in 2026
-    'extract_rules': {
-        'reviews': {
-            'selector': 'div.review',
-            'type': 'list',
-            'output': {
-                'body': 'span.review-text',
-                'rating': 'i.review-rating span'
-            }
+# 2. THE FIX: Correctly formatting extraction rules
+# We put the rules in a dictionary first...
+rules = {
+    "reviews": {
+        "selector": "div.review",
+        "type": "list",
+        "output": {
+            "body": "span.review-text",
+            "rating": "i.review-rating span"
         }
     }
 }
 
+# ...then we turn it into a JSON string so ScrapingBee understands it.
+params = {
+    'api_key': SCRAPINGBEE_API_KEY,
+    'url': f"https://www.amazon.com/product-reviews/{TARGET_ASIN}",
+    'premium_proxy': 'true',
+    'extract_rules': json.dumps(rules) # <--- THIS IS THE FIX
+}
+
 try:
     response = requests.get('https://app.scrapingbee.com/api/v1', params=params, timeout=30)
-    response.raise_for_status() # This checks if the website actually loaded
+    response.raise_for_status()
     data = response.json()
 except Exception as e:
     print(f"❌ SCRAPING ERROR: {e}")
-    if 'response' in locals(): print(f"Response details: {response.text}")
+    if 'response' in locals(): print(f"Details: {response.text}")
     exit(1)
 
-# Check if we actually got reviews
 reviews = data.get('reviews', [])
 if not reviews:
-    print("⚠️ WARNING: No reviews found. Amazon might have changed their layout.")
-    # We create a dummy report so the workflow doesn't fail completely
-    with open("report.md", "w") as f: f.write("# Report Failed\nAmazon blocked the scrape or no reviews were found.")
-    exit(0) 
+    print("⚠️ No reviews found. Check if the ASIN is correct or if Amazon changed layout.")
+    exit(0)
 
 print(f"✅ Secured {len(reviews)} reviews. Consulting AI...")
 
-# 3. AI ANALYSIS WITH ERROR HANDLING
+# 3. MODERN AI ANALYSIS (Using the new google-genai)
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"Analyze these Amazon reviews and give me a 3-point strategy report: {json.dumps(reviews)}"
-    ai_response = model.generate_content(prompt)
+    
+    # New 2026 syntax for generating content
+    response = client.models.generate_content(
+        model="gemini-1.5-flash",
+        contents=prompt
+    )
     
     with open("report.md", "w") as file:
-        file.write(ai_response.text)
+        file.write(response.text)
     print("🎯 Mission Accomplished! Report saved.")
 
 except Exception as e:
