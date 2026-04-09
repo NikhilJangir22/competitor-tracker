@@ -1,0 +1,33 @@
+name: Competitor AI Agent
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # This means: Run every Monday at 8 AM UTC
+  workflow_dispatch: # This magical line adds a "Run Now" button so you can test it!
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Grab my files
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tool kits
+        run: pip install requests google-generativeai
+
+      - name: Run the Agent
+        env:
+          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python main.py
+
+      - name: Save the final report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Intelligence-Report
+          path: report.md
