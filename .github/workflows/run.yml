@@ -27,6 +27,7 @@ jobs:
         run: python main.py
 
       - name: Save the final report
+      if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Intelligence-Report
