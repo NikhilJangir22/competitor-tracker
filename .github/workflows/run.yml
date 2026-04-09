@@ -18,8 +18,8 @@ jobs:
           python-version: '3.11'
 
       - name: Install tool kits
-        run: pip install requests google-generativeai
-
+        run: pip install requests google-genai,
+        
       - name: Run the Agent
         env:
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
