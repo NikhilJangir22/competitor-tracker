@@ -2,33 +2,42 @@ name: Competitor AI Agent
 
 on:
   schedule:
+    # This runs the robot every Monday at 8:00 AM UTC
     - cron: '0 8 * * 1' 
   workflow_dispatch: 
+    # This adds the "Run Now" button in your Actions tab
 
 jobs:
   investigate:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Grab my files
-        uses: actions/checkout@v5  # Updated from v4
+      - name: 1. Clone Repository
+        uses: actions/checkout@v5
 
-      - name: Install Python
-        uses: actions/setup-python@v6 # Updated from v5
+      - name: 2. Setup Python Environment
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Install tool kits
+      - name: 3. Install Required Libraries
+        # We use 'google-genai' (the new 2026 library) and 'requests'
         run: pip install requests google-genai
-        
-      - name: Run the Agent
+
+      - name: 4. Execute AI Agent
         env:
+          # This pulls your keys safely from the 'Secrets' vault
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
 
-      - name: Save the final report
-      if: always()
+      - name: 5. Save Intelligence Report
+        # 'if: always()' ensures that even if the code hits an error, 
+        # the file is uploaded so you can see the error message.
+        if: always() 
         uses: actions/upload-artifact@v4
         with:
           name: Intelligence-Report
           path: report.md
+          # This keeps the report available for 7 days
+          retention-days: 7
