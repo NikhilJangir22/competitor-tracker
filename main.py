@@ -6,7 +6,7 @@ from google import genai
 # 1. SETUP
 SCRAPINGBEE_API_KEY = os.environ.get("SCRAPINGBEE_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-TARGET_ASIN = "B07QXV6N1B" 
+TARGET_ASIN = "B08N6MF5N4" 
 
 def save_report(content):
     """Ensures a report file is ALWAYS created for GitHub to find."""
